@@ -1,12 +1,14 @@
+import 'package:dartz/dartz.dart';
 import 'package:todo_clean_getx/features/todo/domain/entities/todo.dart';
+import 'package:todo_clean_getx/shared/errors/failure.dart';
 
 abstract class TodoRepository {
   // Add TODO
-  Future<Todo> add({required Todo todo});
+  Future<Either<Failure, Todo>> add({required Todo todo});
   // Edit TODO
-  Future<Todo> edit({required Todo todo});
+  Future<Either<Failure, Todo>> edit({required Todo todo});
   // Delete TODO
-  Future<Todo> delete({required Todo todo});
+  Future<Either<Failure, Todo>> delete({required Todo todo});
   // Get All TODO
-  Future<List<Todo>> getAll();
+  Future<Either<Failure, List<Todo>>> getAll();
 }

@@ -49,5 +49,7 @@ class TodoRemoteDatabaseImpl implements TodoRemoteDatabase {
     var results = await _noSQLUtility.getDocuments(
       reference: reference,
     );
+
+    return results.map((document) => Todo.fromJson(document.fields)).toList();
   }
 }
