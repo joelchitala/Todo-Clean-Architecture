@@ -327,6 +327,16 @@ class NoSQLUtility extends Logging {
     return collection.getDocuments(query: query);
   }
 
+  Future<Stream<List<Document>>> getDocumentStream({
+    required String reference,
+  }) async {
+    Collection? collection = await getCollection(reference: reference);
+
+    if (collection == null) return const Stream<List<Document>>.empty();
+
+    return collection.stream;
+  }
+
   Future<bool> updateDocument({
     required String reference,
     required BaseQueryBuilder query,

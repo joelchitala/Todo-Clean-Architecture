@@ -1,3 +1,5 @@
+import 'dart:isolate';
+
 List<List<T>> arrayPairer<T>(List<T> values) {
   List<List<T>> pairs = [];
   try {
@@ -449,46 +451,71 @@ class BaseQueryBuilder<T> {
     return this as T;
   }
 
-  List<Map<K, dynamic>> interpret<K>({required List<Map<K, dynamic>> data}) {
+  Future<List<Map<K, dynamic>>> interpret<K>({
+    required List<Map<K, dynamic>> data,
+  }) async {
     var buildQuery = build();
 
     var buildValues = buildQuery.values.toList();
 
     List<Map<K, dynamic>> ref = data;
 
-    for (var i = 0; i < buildValues.length; i++) {
-      var queryInstance = buildValues[i];
+    Future<void> queryInterpreterIsolate(SendPort sendPort) async {
+      List<Map<K, dynamic>> tempRef = [];
 
-      // array holds the list of data elements that are valid under the current query instance.
-      List<Map<K, dynamic>> array = [];
+      for (var i = 0; i < buildValues.length; i++) {
+        var queryInstance = buildValues[i];
 
-      for (Map<K, dynamic> x in ref) {
-        // if element x is valid under the current query instance, it is added to the array.
-        if (queryInstance.validator(json: x)) array.add(x);
+        // array holds the list of data elements that are valid under the current query instance.
+        List<Map<K, dynamic>> array = [];
+
+        for (Map<K, dynamic> x in tempRef) {
+          // if element x is valid under the current query instance, it is added to the array.
+          if (queryInstance.validator(json: x)) array.add(x);
+        }
+
+        // sets the tempRef array to contain valid elements from the current query instance
+        tempRef = array;
       }
 
-      // sets the ref array to contain valid elements from the current query instance
-      ref = array;
+      // Sorts tempRef array if sort object exists
+      if (__querySortObject != null)
+        tempRef = __querySortObject!.interpret(data: tempRef);
+
+      // if the limit is less than 0 or limit is greater than the tempRef array, the tempRef array is returned.
+      if (_limit < 0 || _limit > tempRef.length) {
+        sendPort.send(tempRef);
+        return;
+      }
+
+      // if the limit is 0 then an empty array is returned
+      if (_limit == 0) {
+        sendPort.send([]);
+        return;
+      }
+
+      // Array that contains the number of tempRef elements as defined by the limit
+      List<Map<K, dynamic>> limitArr = [];
+
+      for (var i = 0; i < _limit; i++) {
+        limitArr.add(tempRef[i]);
+      }
+
+      tempRef = limitArr;
+
+      sendPort.send(tempRef);
     }
 
-    // Sorts ref array if sort object exists
-    if (__querySortObject != null)
-      ref = __querySortObject!.interpret(data: ref);
+    ReceivePort receivePort = ReceivePort();
 
-    // if the limit is less than 0 or limit is greater than the ref array, the ref array is returned.
-    if (_limit < 0 || _limit > ref.length) return ref;
+    Isolate isolate = await Isolate.spawn(
+      queryInterpreterIsolate,
+      receivePort.sendPort,
+    );
 
-    // if the limit is 0 then an empty array is returned
-    if (_limit == 0) return [];
-
-    // Array that contains the number of ref elements as defined by the limit
-    List<Map<K, dynamic>> limitArr = [];
-
-    for (var i = 0; i < _limit; i++) {
-      limitArr.add(ref[i]);
-    }
-
-    ref = limitArr;
+    ref = await receivePort.first;
+    receivePort.close();
+    isolate.kill();
 
     return ref;
   }

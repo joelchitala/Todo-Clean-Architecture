@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:isolate';
 
 import '../utilities/logger.dart';
@@ -9,6 +10,9 @@ import 'database.dart';
 import 'document.dart';
 
 class Collection extends BaseComponent {
+  final _streamController = StreamController<List<Document>>.broadcast();
+  Stream<List<Document>> get stream => _streamController.stream;
+
   Database database;
   Map<String, Document> _documents = {};
   RestrictionBuilder _restrictions = RestrictionBuilder();
@@ -92,6 +96,14 @@ class Collection extends BaseComponent {
 
   set documents(Map<String, Document> data) => _documents = data;
 
+  void _broadcastChanges() {
+    _streamController.add(List<Document>.from(_documents.values.toList()));
+  }
+
+  void dispose() {
+    _streamController.close();
+  }
+
   void addDocumentListner(
       Future<void> Function(
               Document document, void Function(bool res) setResults)
@@ -170,12 +182,16 @@ class Collection extends BaseComponent {
           },
         );
 
-        if (results) _documents[document.objectId as String] = document;
+        if (results) {
+          _documents[document.objectId as String] = document;
+          _broadcastChanges();
+        }
 
         return results;
       },
       undoFunc: (_, __) async {
         _documents.remove(document.objectId);
+        _broadcastChanges();
         return true;
       },
     );
@@ -211,6 +227,7 @@ class Collection extends BaseComponent {
             results = res;
           },
         );
+        if (results) _broadcastChanges();
         return results;
       },
       undoFunc: (ref, __) async {
@@ -219,6 +236,7 @@ class Collection extends BaseComponent {
         for (var document in documents) {
           _documents.remove(document.objectId);
         }
+        _broadcastChanges();
         return true;
       },
     );
@@ -267,10 +285,11 @@ class Collection extends BaseComponent {
           results = res;
         },
       );
-
+      if (results) _broadcastChanges();
       return results;
     }, undoFunc: (_, __) async {
       _documents.addAll({document.objectId!: document});
+      _broadcastChanges();
       return true;
     });
 
@@ -307,6 +326,7 @@ class Collection extends BaseComponent {
           },
         );
 
+        if (results) _broadcastChanges();
         return results;
       },
       undoFunc: (ref, __) async {
@@ -315,6 +335,7 @@ class Collection extends BaseComponent {
         for (var document in documents) {
           _documents.addAll({document.objectId!: document});
         }
+        _broadcastChanges();
         return true;
       },
     );
@@ -337,7 +358,8 @@ class Collection extends BaseComponent {
           .map((e) => e.toJson())
           .toList();
 
-      var results = _restrictions.interpret(data: data, dataList: dataList);
+      var results =
+          await _restrictions.interpret(data: data, dataList: dataList);
       if (!results) {
         logger_log(
           "Failed Update document: ${document.objectId}. Data $data violates collection restrictions",
@@ -348,12 +370,13 @@ class Collection extends BaseComponent {
       Map<String, dynamic> initialData = document.fields;
       results = document.updateFields(data, ignoreKeys: ignoreKeys);
       setRef(initialData);
-
+      _broadcastChanges();
       return true;
     }, undoFunc: (ref, __) async {
       Map<String, dynamic>? initialData = ref;
       if (initialData == null) return false;
       var results = document.updateFields(initialData, ignoreKeys: ignoreKeys);
+      _broadcastChanges();
       return results;
     });
 
@@ -378,7 +401,7 @@ class Collection extends BaseComponent {
             .map((e) => e.toJson())
             .toList();
 
-        results = _restrictions.interpret(data: data, dataList: dataList);
+        results = await _restrictions.interpret(data: data, dataList: dataList);
         if (results) {
           initialFields.add(document.fields);
           results = document.updateFields(data);
@@ -391,6 +414,7 @@ class Collection extends BaseComponent {
         }
       }
       setRef(initialFields);
+      _broadcastChanges();
       return results;
     }, undoFunc: (ref, __) async {
       var initialFields = ref;
@@ -400,6 +424,7 @@ class Collection extends BaseComponent {
         if (document == null) continue;
         document.updateFields(fields);
       }
+      _broadcastChanges();
       return true;
     });
 
@@ -409,33 +434,19 @@ class Collection extends BaseComponent {
   Future<List<Document>> _documentQueryInterpreter({
     required BaseQueryBuilder query,
   }) async {
-    Future<void> queryInterpreterIsolate(SendPort sendPort) async {
-      var results = query.interpret(
-          data: _documents.values.map((x) => x.fields).toList());
+    var results = await query.interpret(
+        data: _documents.values.map((x) => x.fields).toList());
 
-      List<Document> array = [];
+    List<Document> array = [];
 
-      for (var data in results) {
-        var _objectId = data["_objectId"];
+    for (var data in results) {
+      var objectId = data["_objectId"];
 
-        if (_objectId == null) continue;
+      if (objectId == null) continue;
 
-        Document? document = _documents[_objectId];
-        if (document != null) array.add(document);
-      }
-      sendPort.send(array);
+      Document? document = _documents[objectId];
+      if (document != null) array.add(document);
     }
-
-    ReceivePort receivePort = ReceivePort();
-
-    Isolate isolate = await Isolate.spawn(
-      queryInterpreterIsolate,
-      receivePort.sendPort,
-    );
-
-    List<Document> array = await receivePort.first;
-    receivePort.close();
-    isolate.kill();
 
     return array;
   }
@@ -443,42 +454,31 @@ class Collection extends BaseComponent {
   Future<bool> documentRestrictionsInterpreter({
     required Document document,
   }) async {
-    Future<void> restrictionsInterpreterIsolate(SendPort sendPort) async {
-      List<Map<String, dynamic>> documents =
-          _documents.values.map((x) => x.fields).toList();
-      sendPort.send(
-          restrictions.interpret(data: document.fields, dataList: documents));
-    }
-
-    ReceivePort receivePort = ReceivePort();
-
-    Isolate isolate = await Isolate.spawn(
-        restrictionsInterpreterIsolate, receivePort.sendPort);
     bool results = true;
+    List<Map<String, dynamic>> documents =
+        _documents.values.map((x) => x.fields).toList();
     try {
-      results = await receivePort.first;
+      results = await restrictions.interpret(
+          data: document.fields, dataList: documents);
     } catch (e) {
-      print(e);
       results = false;
     }
-    receivePort.close();
-    isolate.kill();
 
     return results;
   }
 
   @override
   Map<String, dynamic> toJson() {
-    Map<String, Map> temp_entries = {};
+    Map<String, Map> tempEntries = {};
     _documents.forEach((key, value) {
-      temp_entries.addAll({key: value.toJson()});
+      tempEntries.addAll({key: value.toJson()});
     });
     return super.toJson()
       ..addAll({
         "database": database.objectId,
         "number_of_documents": _documents.length,
         "restrictions": _restrictions.toJson(),
-        "documents": temp_entries,
+        "documents": tempEntries,
       });
   }
 }

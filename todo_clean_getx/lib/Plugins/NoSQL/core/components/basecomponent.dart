@@ -18,35 +18,6 @@ NoSQLType? toNoSQLType(String type) {
   return null;
 }
 
-// class CommandBlock<T> {
-//   T? _reference;
-
-//   Future<bool> Function(Function(T? ref) setRef)? _doFunction;
-//   Future<bool> Function(T? ref)? _undoFunction;
-
-//   void _setReference(T? ref) {
-//     _reference = ref;
-//   }
-
-//   void setCommands({
-//     required Future<bool> Function(Function(T? ref) setRef) doFunc,
-//     required Future<bool> Function(T? ref) undoFunc,
-//   }) {
-//     _doFunction = doFunc;
-//     _undoFunction = undoFunc;
-//   }
-
-//   Future<bool> execute() async {
-//     if (_doFunction == null) return true;
-//     return await _doFunction!(_setReference);
-//   }
-
-//   Future<bool> undo() async {
-//     if (_undoFunction == null) return true;
-//     return await _undoFunction!(_reference);
-//   }
-// }
-
 class CallbackObject<T> {
   String key;
   List<Future<void> Function(T ref, void Function(bool res) setResults)>

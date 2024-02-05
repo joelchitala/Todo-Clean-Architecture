@@ -48,12 +48,17 @@ class TodoRemoteDatabaseImpl implements TodoRemoteDatabase {
 
   @override
   Stream<List<Todo>> listTodos() async* {
-    var results = await _noSQLUtility.getDocuments(
+    var results = await _noSQLUtility.getDocumentStream(
       reference: reference,
     );
-    var todos =
-        results.map((document) => Todo.fromJson(document.fields)).toList();
-    yield* listToStream<Todo>(todos);
+
+    yield* results.map(
+      (documents) => documents
+          .map(
+            (document) => Todo.fromJson(document.fields),
+          )
+          .toList(),
+    );
   }
 }
 

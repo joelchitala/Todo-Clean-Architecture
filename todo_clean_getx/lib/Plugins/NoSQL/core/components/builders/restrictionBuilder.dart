@@ -1,3 +1,5 @@
+import 'dart:isolate';
+
 import 'binders/bindings.dart';
 
 String cleanRestrictionTypes({required String type}) {
@@ -641,28 +643,45 @@ class RestrictionBuilder {
     return this;
   }
 
-  bool interpret({
+  Future<bool> interpret({
     required Map<String, dynamic> data,
     List<Map<String, dynamic>>? dataList,
-  }) {
-    bool results = true;
+  }) async {
+    ReceivePort receivePort = ReceivePort();
 
-    try {
+    Future<void> queryInterpreterIsolate(SendPort sendPort) async {
+      bool results = true;
+
       for (var obj in _restrictionFieldObjects.values) {
         if (!obj.validate(
           json: data,
           dataList: dataList,
-        )) return false;
+        )) {
+          results = false;
+          break;
+        }
       }
 
       for (var obj in _restrictionValueObjects.values) {
-        if (!obj.validate(json: data)) return false;
+        if (!obj.validate(json: data)) {
+          {
+            results = false;
+            break;
+          }
+        }
       }
-    } catch (e) {
-      print(e);
-      return false;
+      sendPort.send(results);
     }
 
+    Isolate isolate = await Isolate.spawn(
+      queryInterpreterIsolate,
+      receivePort.sendPort,
+    );
+
+    bool results = await receivePort.first;
+
+    receivePort.close();
+    isolate.kill();
     return results;
   }
 
