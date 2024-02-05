@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:isolate';
-
 import '../utilities/logger.dart';
 import 'basecomponent.dart';
 import 'builders/queryBuilders/baseQueryBuilder.dart';
@@ -285,7 +283,7 @@ class Collection extends BaseComponent {
           results = res;
         },
       );
-      if (results) _broadcastChanges();
+      _broadcastChanges();
       return results;
     }, undoFunc: (_, __) async {
       _documents.addAll({document.objectId!: document});
@@ -326,7 +324,7 @@ class Collection extends BaseComponent {
           },
         );
 
-        if (results) _broadcastChanges();
+        _broadcastChanges();
         return results;
       },
       undoFunc: (ref, __) async {

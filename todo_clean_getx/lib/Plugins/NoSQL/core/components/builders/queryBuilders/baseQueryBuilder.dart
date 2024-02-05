@@ -458,10 +458,10 @@ class BaseQueryBuilder<T> {
 
     var buildValues = buildQuery.values.toList();
 
-    List<Map<K, dynamic>> ref = data;
+    List<Map<K, dynamic>> ref = [];
 
     Future<void> queryInterpreterIsolate(SendPort sendPort) async {
-      List<Map<K, dynamic>> tempRef = [];
+      List<Map<K, dynamic>> tempRef = data;
 
       for (var i = 0; i < buildValues.length; i++) {
         var queryInstance = buildValues[i];
@@ -479,8 +479,9 @@ class BaseQueryBuilder<T> {
       }
 
       // Sorts tempRef array if sort object exists
-      if (__querySortObject != null)
+      if (__querySortObject != null) {
         tempRef = __querySortObject!.interpret(data: tempRef);
+      }
 
       // if the limit is less than 0 or limit is greater than the tempRef array, the tempRef array is returned.
       if (_limit < 0 || _limit > tempRef.length) {
@@ -503,6 +504,8 @@ class BaseQueryBuilder<T> {
 
       tempRef = limitArr;
 
+      print(tempRef);
+
       sendPort.send(tempRef);
     }
 
@@ -514,6 +517,7 @@ class BaseQueryBuilder<T> {
     );
 
     ref = await receivePort.first;
+
     receivePort.close();
     isolate.kill();
 

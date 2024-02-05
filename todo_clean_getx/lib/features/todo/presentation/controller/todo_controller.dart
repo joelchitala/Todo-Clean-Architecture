@@ -62,4 +62,38 @@ class TodoController extends GetxController {
       return todos;
     });
   }
+
+  Future<void> deleteTodo(Todo todo) async {
+    final results = await deleteTodoUseCase.call(Params(todo));
+    results.fold(
+      (failure) {
+        Get.snackbar("Error", failure.message);
+      },
+      (todo) {
+        Get.snackbar("Success", "Todo deleted successfully");
+      },
+    );
+  }
+
+  Future<void> editTodo(Todo todo) async {
+    final results = await editTodoUseCase.call(
+      Params(
+        Todo.update(
+          todo,
+          {
+            "text": titleController.text,
+            "description": descriptionController.text,
+          },
+        ),
+      ),
+    );
+    results.fold(
+      (failure) {
+        Get.snackbar("Error", failure.message);
+      },
+      (todo) {
+        Get.snackbar("Success", "Todo updated successfully");
+      },
+    );
+  }
 }

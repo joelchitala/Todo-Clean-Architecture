@@ -32,6 +32,11 @@ class TodoRemoteDatabaseImpl implements TodoRemoteDatabase {
       query: QueryBuilder().eq(key: "id", values: [todo.id]),
     );
 
+    var doc = await _noSQLUtility.getDocument(
+      reference: reference,
+      query: QueryBuilder().eq(key: "id", values: [todo.id]),
+    );
+
     return todo;
   }
 

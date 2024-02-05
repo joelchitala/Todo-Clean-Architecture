@@ -15,6 +15,14 @@ class Todo {
     );
   }
 
+  factory Todo.update(Todo todo, Map<String, dynamic> data) {
+    return Todo(
+      id: todo.id,
+      text: data["text"] ?? todo.text,
+      description: data["description"] ?? todo.description,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       "id": id,
