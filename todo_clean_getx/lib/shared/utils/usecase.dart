@@ -10,7 +10,4 @@ class Params<T> {
   Params(this.data);
 }
 
-class NoParams {
-  final void data;
-  NoParams(this.data);
-}
+class NoParams {}

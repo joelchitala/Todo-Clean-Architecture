@@ -5,21 +5,25 @@ import 'package:todo_clean_getx/features/todo/domain/repositories/todo_repositor
 import 'package:todo_clean_getx/features/todo/domain/usecases/add.dart';
 import 'package:todo_clean_getx/features/todo/domain/usecases/delete.dart';
 import 'package:todo_clean_getx/features/todo/domain/usecases/edit.dart';
+import 'package:todo_clean_getx/features/todo/domain/usecases/list.dart';
 import 'package:todo_clean_getx/features/todo/presentation/controller/todo_controller.dart';
 
 class TodoBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut(() => TodoRemoteDatabaseImpl());
-    Get.lazyPut(() => TodoRepositoryImpl(remoteDatabase: Get.find()));
+    Get.lazyPut<TodoRemoteDatabase>(() => TodoRemoteDatabaseImpl());
+    Get.lazyPut<TodoRepository>(
+        () => TodoRepositoryImpl(remoteDatabase: Get.find()));
     Get.lazyPut(() => AddTodoUseCase(repository: Get.find()));
     Get.lazyPut(() => EditTodoUseCase(repository: Get.find()));
     Get.lazyPut(() => DeleteTodoUseCase(repository: Get.find()));
+    Get.lazyPut(() => ListTodoUseCase(repository: Get.find()));
     Get.lazyPut(
       () => TodoController(
         addTodoUseCase: Get.find(),
         editTodoUseCase: Get.find(),
         deleteTodoUseCase: Get.find(),
+        listTodoUseCase: Get.find(),
       ),
     );
   }

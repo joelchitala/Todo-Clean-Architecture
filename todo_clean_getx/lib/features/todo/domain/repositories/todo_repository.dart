@@ -10,5 +10,5 @@ abstract class TodoRepository {
   // Delete TODO
   Future<Either<Failure, Todo>> delete({required Todo todo});
   // Get All TODO
-  Future<Either<Failure, List<Todo>>> getAll();
+  Future<Either<Failure, Stream<List<Todo>>>> getAll();
 }

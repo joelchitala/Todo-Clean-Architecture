@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:todo_clean_getx/Plugins/NoSQL/core/components/builders/queryBuilders/queryBuilder.dart';
 import 'package:todo_clean_getx/Plugins/NoSQL/core/nosqlUtility.dart';
 import 'package:todo_clean_getx/features/todo/domain/entities/todo.dart';
@@ -6,7 +8,7 @@ abstract class TodoRemoteDatabase {
   Future<Todo> add({required Todo todo});
   Future<Todo> edit({required Todo todo});
   Future<Todo> delete({required Todo todo});
-  Future<List<Todo>> listTodos();
+  Stream<List<Todo>> listTodos();
 }
 
 class TodoRemoteDatabaseImpl implements TodoRemoteDatabase {
@@ -45,11 +47,25 @@ class TodoRemoteDatabaseImpl implements TodoRemoteDatabase {
   }
 
   @override
-  Future<List<Todo>> listTodos() async {
+  Stream<List<Todo>> listTodos() async* {
     var results = await _noSQLUtility.getDocuments(
       reference: reference,
     );
-
-    return results.map((document) => Todo.fromJson(document.fields)).toList();
+    var todos =
+        results.map((document) => Todo.fromJson(document.fields)).toList();
+    yield* listToStream<Todo>(todos);
   }
+}
+
+Stream<List<T>> listToStream<T>(List<T> inputList) {
+  final controller = StreamController<List<T>>();
+
+  // Add the list to the stream
+  controller.add(inputList);
+
+  // Close the stream when done
+  controller.close();
+
+  // Return the stream
+  return controller.stream;
 }
